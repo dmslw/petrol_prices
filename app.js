@@ -1,5 +1,5 @@
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 const REPORTS_API_URL = "/api/reports";
+const STATIONS_API_URL = "/api/stations";
 const AUTH_ME_API_URL = "/api/auth/me";
 const AUTH_LOGIN_API_URL = "/api/auth/login";
 const AUTH_REGISTER_API_URL = "/api/auth/register";
@@ -353,30 +353,15 @@ async function fetchStations() {
   mapStatus.textContent = "Pobieram stacje z mapy...";
 
   const bounds = map.getBounds();
-  const query = `
-    [out:json][timeout:25];
-    (
-      node["amenity"="fuel"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
-      way["amenity"="fuel"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
-      relation["amenity"="fuel"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
-    );
-    out center tags;
-  `;
 
   try {
-    const response = await fetch(OVERPASS_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=UTF-8"
-      },
-      body: query
+    const params = new URLSearchParams({
+      south: String(bounds.getSouth()),
+      west: String(bounds.getWest()),
+      north: String(bounds.getNorth()),
+      east: String(bounds.getEast())
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await fetchJson(`${STATIONS_API_URL}?${params.toString()}`);
     const fetchedStations = (data.elements || [])
       .map(toStation)
       .filter((station) => Number.isFinite(station.lat) && Number.isFinite(station.lon));

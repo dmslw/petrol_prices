@@ -14,6 +14,7 @@ const DB_DIR = path.dirname(DB_PATH);
 const SESSION_COOKIE = "fuel_session";
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -421,6 +422,24 @@ function validatePasswordChangePayload(payload) {
   return null;
 }
 
+function parseBounds(searchParams) {
+  const south = Number(searchParams.get("south"));
+  const west = Number(searchParams.get("west"));
+  const north = Number(searchParams.get("north"));
+  const east = Number(searchParams.get("east"));
+
+  if (
+    !Number.isFinite(south) ||
+    !Number.isFinite(west) ||
+    !Number.isFinite(north) ||
+    !Number.isFinite(east)
+  ) {
+    return null;
+  }
+
+  return { south, west, north, east };
+}
+
 async function handleAuthApi(request, response, pathname) {
   if (pathname === "/api/auth/register" && request.method === "POST") {
     const payload = await readJsonBody(request, response);
@@ -613,10 +632,54 @@ async function handleAdminApi(request, response, pathname) {
   sendNotFound(response);
 }
 
+async function handleStationsApi(response, searchParams) {
+  const bounds = parseBounds(searchParams);
+  if (!bounds) {
+    sendJson(response, 400, { error: "Niepoprawne granice mapy." });
+    return;
+  }
+
+  const query = `
+    [out:json][timeout:25];
+    (
+      node["amenity"="fuel"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
+      way["amenity"="fuel"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
+      relation["amenity"="fuel"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
+    );
+    out center tags;
+  `;
+
+  const upstreamResponse = await fetch(OVERPASS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=UTF-8",
+      "User-Agent": "ceny-paliw/1.0"
+    },
+    body: query
+  });
+
+  if (!upstreamResponse.ok) {
+    sendJson(response, 502, { error: `Overpass error ${upstreamResponse.status}` });
+    return;
+  }
+
+  const data = await upstreamResponse.json();
+  sendJson(response, 200, data);
+}
+
 async function handleApi(request, response, pathname) {
   try {
     if (pathname === "/api/health") {
       sendJson(response, 200, { ok: true });
+      return;
+    }
+
+    if (pathname === "/api/stations") {
+      const requestUrl = new URL(
+        request.url,
+        `http://${request.headers.host || `${HOST}:${PORT}`}`
+      );
+      await handleStationsApi(response, requestUrl.searchParams);
       return;
     }
 
