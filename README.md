@@ -61,7 +61,7 @@ Test sprawdza:
    - `ADMIN_PASSWORD=zmien-to-na-mocne-haslo`
 5. Deploy uruchomi `npm start`.
 
-W repo jest juz plik [railway.json](/C:/Users/Dominik/Documents/ceny%20paliw/railway.json).
+Repo zawiera plik `railway.json`.
 
 ## Publikacja na Render
 
@@ -73,7 +73,7 @@ W repo jest juz plik [railway.json](/C:/Users/Dominik/Documents/ceny%20paliw/rai
    - `ADMIN_PASSWORD=zmien-to-na-mocne-haslo`
 4. Start command: `npm start`
 
-W repo jest juz plik [render.yaml](/C:/Users/Dominik/Documents/ceny%20paliw/render.yaml).
+Repo zawiera plik `render.yaml`.
 
 ## Co jeszcze warto zrobic przed publicznym startem
 
