@@ -52,7 +52,7 @@ Test sprawdza:
 
 ## Publikacja na Railway
 
-1. Wrzuć projekt do repozytorium GitHub.
+1. Wrzuc projekt do repozytorium GitHub.
 2. Utworz nowy projekt w Railway i podlacz repo.
 3. Ustaw volume zamontowany do katalogu `data`.
 4. Ustaw zmienne:
