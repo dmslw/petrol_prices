@@ -8,8 +8,9 @@ const { DatabaseSync } = require("node:sqlite");
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
 const ROOT_DIR = __dirname;
-const DB_DIR = path.join(ROOT_DIR, "data");
-const DB_PATH = process.env.DB_PATH || path.join(DB_DIR, "fuel-prices.db");
+const DEFAULT_DB_DIR = path.join(ROOT_DIR, "data");
+const DB_PATH = process.env.DB_PATH || path.join(DEFAULT_DB_DIR, "fuel-prices.db");
+const DB_DIR = path.dirname(DB_PATH);
 const SESSION_COOKIE = "fuel_session";
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
@@ -635,6 +636,7 @@ if (require.main === module) {
   const server = createServer();
   server.listen(PORT, HOST, () => {
     console.log(`Serwer dziala na http://${HOST}:${PORT}`);
+    console.log(`SQLite DB: ${DB_PATH}`);
   });
 }
 
