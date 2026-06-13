@@ -49,7 +49,7 @@
 
       <main class="layout">
         <section class="content">
-          <section class="panel panel--map">
+          <section id="map-panel" class="panel panel--map">
             <div class="panel__header">
               <p class="eyebrow">Mapa stacji</p>
               <h2>Stacje paliw z OpenStreetMap</h2>
@@ -152,6 +152,9 @@
                 placeholder="Kliknij stacje na mapie"
                 readonly
                 required
+                role="button"
+                tabindex="0"
+                aria-label="Przejdz do mapy stacji"
               />
             </label>
 

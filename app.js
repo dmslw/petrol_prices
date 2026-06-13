@@ -15,6 +15,7 @@ const form = document.querySelector("#price-form");
 const loginForm = document.querySelector("#login-form");
 const registerForm = document.querySelector("#register-form");
 const passwordForm = document.querySelector("#password-form");
+const mapPanel = document.querySelector("#map-panel");
 const stationIdInput = document.querySelector("#stationId");
 const stationNameInput = document.querySelector("#stationName");
 const authorDisplayInput = document.querySelector("#authorDisplay");
@@ -43,6 +44,26 @@ let visibleStations = [];
 let stationIndex = new Map();
 let reports = [];
 let currentUser = null;
+
+function jumpToMap() {
+  mapPanel.scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+
+  mapPanel.classList.add("panel--jump");
+  window.setTimeout(() => {
+    mapPanel.classList.remove("panel--jump");
+  }, 1600);
+
+  if (map) {
+    window.setTimeout(() => {
+      map.invalidateSize();
+    }, 300);
+  }
+
+  formMessage.textContent = "Kliknij stacje na mapie, aby ja wybrac.";
+}
 
 function getStationId(element) {
   return `${element.type}/${element.id}`;
@@ -588,5 +609,12 @@ registerForm.addEventListener("submit", (event) =>
   handleAuthSubmit(event, AUTH_REGISTER_API_URL, "Konto utworzone i zalogowane.")
 );
 passwordForm.addEventListener("submit", changePassword);
+stationNameInput.addEventListener("click", jumpToMap);
+stationNameInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    jumpToMap();
+  }
+});
 
 bootstrap();
