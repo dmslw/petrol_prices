@@ -10,6 +10,7 @@ const POLAND_VIEW = {
   center: [52.1, 19.4],
   zoom: 6
 };
+const MAX_VISIBLE_MARKERS = 300;
 
 const form = document.querySelector("#price-form");
 const loginForm = document.querySelector("#login-form");
@@ -130,7 +131,7 @@ async function loadStations() {
     brand: station.name || "Stacja paliw"
   }));
   mergeStations(fetchedStations);
-  mapStatus.textContent = `Wczytano ${fetchedStations.length} stacji z lokalnej bazy.`;
+  updateMapStatus();
 }
 
 async function loadCurrentUser() {
@@ -284,12 +285,36 @@ function applyFilters() {
   stationCount.textContent = String(visibleStations.length);
   renderMarkers();
   renderStations();
+  updateMapStatus();
+}
+
+function updateMapStatus() {
+  if (!allStations.length) {
+    mapStatus.textContent = "Brak stacji w lokalnej bazie.";
+    return;
+  }
+
+  if (!visibleStations.length) {
+    mapStatus.textContent =
+      `W bazie jest ${allStations.length} stacji, ale nic nie pasuje do aktualnego widoku lub filtra.`;
+    return;
+  }
+
+  const renderedCount = Math.min(visibleStations.length, MAX_VISIBLE_MARKERS);
+
+  if (visibleStations.length > MAX_VISIBLE_MARKERS) {
+    mapStatus.textContent =
+      `W widoku jest ${visibleStations.length} stacji. Na mapie pokazuje pierwsze ${renderedCount}, przybliz mape aby odciazyc widok.`;
+    return;
+  }
+
+  mapStatus.textContent = `W widoku mapy jest ${visibleStations.length} stacji z lokalnej bazy.`;
 }
 
 function renderMarkers() {
   markersLayer.clearLayers();
 
-  visibleStations.forEach((station) => {
+  visibleStations.slice(0, MAX_VISIBLE_MARKERS).forEach((station) => {
     if (!Number.isFinite(station.lat) || !Number.isFinite(station.lon)) {
       return;
     }
