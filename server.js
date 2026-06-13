@@ -93,6 +93,15 @@ if (!fs.existsSync(DB_DIR)) {
 
 const db = new DatabaseSync(DB_PATH);
 
+function ensureColumn(tableName, columnName, columnDefinition) {
+  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all();
+  if (columns.some((column) => column.name === columnName)) {
+    return;
+  }
+
+  db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`);
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -130,9 +139,16 @@ db.exec(`
     lat REAL NOT NULL,
     lon REAL NOT NULL,
     created_by TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'manual',
+    updated_at TEXT NOT NULL DEFAULT '',
+    is_user_created INTEGER NOT NULL DEFAULT 1
   );
 `);
+
+ensureColumn("stations", "source", "TEXT NOT NULL DEFAULT 'manual'");
+ensureColumn("stations", "updated_at", "TEXT NOT NULL DEFAULT ''");
+ensureColumn("stations", "is_user_created", "INTEGER NOT NULL DEFAULT 1");
 
 const reportCountRow = db.prepare("SELECT COUNT(*) AS count FROM reports").get();
 if (reportCountRow.count === 0) {
@@ -174,11 +190,15 @@ if (stationCountRow.count === 0) {
       lat,
       lon,
       created_by,
-      created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      created_at,
+      source,
+      updated_at,
+      is_user_created
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   for (const station of seedStations) {
+    const now = new Date().toISOString();
     insertSeedStation.run(
       station.id,
       station.name,
@@ -187,7 +207,10 @@ if (stationCountRow.count === 0) {
       station.lat,
       station.lon,
       "system",
-      new Date().toISOString()
+      now,
+      "seed",
+      now,
+      0
     );
   }
 }
@@ -383,10 +406,13 @@ function listStations() {
         name,
         city,
         address,
-        lat,
-        lon,
-        created_by AS createdBy,
-        created_at AS createdAt
+      lat,
+      lon,
+      created_by AS createdBy,
+      created_at AS createdAt,
+      source,
+      updated_at AS updatedAt,
+      is_user_created AS isUserCreated
       FROM stations
       ORDER BY name ASC, city ASC
     `)
@@ -401,10 +427,13 @@ function getStationById(id) {
         name,
         city,
         address,
-        lat,
-        lon,
-        created_by AS createdBy,
-        created_at AS createdAt
+      lat,
+      lon,
+      created_by AS createdBy,
+      created_at AS createdAt,
+      source,
+      updated_at AS updatedAt,
+      is_user_created AS isUserCreated
       FROM stations
       WHERE id = ?
     `)
@@ -422,8 +451,11 @@ function insertStation(payload, username) {
       lat,
       lon,
       created_by,
-      created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      created_at,
+      source,
+      updated_at,
+      is_user_created
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     stationId,
     payload.name.trim(),
@@ -432,7 +464,10 @@ function insertStation(payload, username) {
     Number(payload.lat),
     Number(payload.lon),
     username,
-    new Date().toISOString()
+    new Date().toISOString(),
+    "manual",
+    new Date().toISOString(),
+    1
   );
   return stationId;
 }

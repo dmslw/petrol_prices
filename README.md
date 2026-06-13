@@ -42,6 +42,28 @@ Test sprawdza:
 - panel admina
 - usuwanie zgloszenia
 
+## Import stacji do bazy
+
+Jednorazowy import wiekszej liczby stacji do lokalnej bazy SQLite:
+
+```powershell
+npm run import:stations
+```
+
+Ta komenda:
+
+- pobiera stacje paliw z OpenStreetMap partiami dla obszaru Polski,
+- zapisuje je do tabeli `stations`,
+- aktualizuje istniejace rekordy po identyfikatorze OSM.
+
+Do codziennego odswiezania mozesz uzywac tej samej komendy:
+
+```powershell
+npm run sync:stations
+```
+
+Najlepiej uruchamiac ja raz dziennie w nocy z poziomu Railway cron job albo innego schedulera.
+
 ## Zmienne srodowiskowe
 
 - `PORT` - port HTTP

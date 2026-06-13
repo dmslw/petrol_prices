@@ -7,6 +7,8 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test:smoke": "node test-smoke.js"
+    "test:smoke": "node test-smoke.js",
+    "import:stations": "node scripts/import-stations.js",
+    "sync:stations": "node scripts/import-stations.js"
   }
 }
