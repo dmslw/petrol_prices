@@ -143,6 +143,11 @@ body {
   cursor: pointer;
 }
 
+.secondary-button--active {
+  background: rgba(189, 79, 25, 0.14);
+  border-color: rgba(189, 79, 25, 0.35);
+}
+
 .content {
   display: grid;
   gap: 24px;
@@ -259,6 +264,10 @@ body {
 .auth-panel h3,
 .admin-panel h3 {
   margin: 0 0 14px;
+}
+
+.map--picking {
+  cursor: crosshair;
 }
 
 .form-message {

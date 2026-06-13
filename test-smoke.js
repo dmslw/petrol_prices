@@ -61,6 +61,11 @@ async function run() {
   try {
     await waitForServer();
 
+    const stationsResponse = await fetch(`http://127.0.0.1:${port}/api/stations`);
+    if (stationsResponse.status !== 200) {
+      throw new Error(`Pobranie stacji nie powiodlo sie: ${stationsResponse.status}`);
+    }
+
     const registerResponse = await fetch(`http://127.0.0.1:${port}/api/auth/register`, {
       method: "POST",
       headers: {
@@ -120,6 +125,25 @@ async function run() {
 
     if (changePasswordResponse.status !== 200) {
       throw new Error(`Zmiana hasla nie powiodla sie: ${changePasswordResponse.status}`);
+    }
+
+    const createStationResponse = await fetch(`http://127.0.0.1:${port}/api/stations`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: userCookie
+      },
+      body: JSON.stringify({
+        name: "Nowa Stacja",
+        city: "Warszawa",
+        address: "ul. Dodana 12",
+        lat: 52.2,
+        lon: 21.01
+      })
+    });
+
+    if (createStationResponse.status !== 201) {
+      throw new Error(`Dodanie stacji nie powiodlo sie: ${createStationResponse.status}`);
     }
 
     const adminLoginResponse = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {

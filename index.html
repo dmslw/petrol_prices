@@ -142,6 +142,33 @@
             </form>
           </section>
 
+          <section id="station-create-panel" class="auth-panel hidden">
+            <h3>Dodaj nowa stacje</h3>
+            <p id="station-create-hint" class="form-message">
+              Kliknij przycisk ponizej, a potem wybierz punkt na mapie.
+            </p>
+            <button id="start-station-pick" type="button" class="secondary-button">
+              Wybierz miejsce na mapie
+            </button>
+            <form id="station-create-form" class="price-form hidden">
+              <label>
+                Nazwa stacji
+                <input id="newStationName" name="name" type="text" required />
+              </label>
+              <label>
+                Miasto
+                <input id="newStationCity" name="city" type="text" required />
+              </label>
+              <label>
+                Adres
+                <input id="newStationAddress" name="address" type="text" required />
+              </label>
+              <input id="newStationLat" name="lat" type="hidden" required />
+              <input id="newStationLon" name="lon" type="hidden" required />
+              <button type="submit">Zapisz stacje</button>
+            </form>
+          </section>
+
           <form id="price-form" class="price-form">
             <label>
               Wybrana stacja

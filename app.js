@@ -15,6 +15,7 @@ const form = document.querySelector("#price-form");
 const loginForm = document.querySelector("#login-form");
 const registerForm = document.querySelector("#register-form");
 const passwordForm = document.querySelector("#password-form");
+const stationCreateForm = document.querySelector("#station-create-form");
 const mapPanel = document.querySelector("#map-panel");
 const stationIdInput = document.querySelector("#stationId");
 const stationNameInput = document.querySelector("#stationName");
@@ -33,9 +34,14 @@ const logoutButton = document.querySelector("#logout-button");
 const loginPanel = document.querySelector("#login-panel");
 const registerPanel = document.querySelector("#register-panel");
 const passwordPanel = document.querySelector("#password-panel");
+const stationCreatePanel = document.querySelector("#station-create-panel");
+const stationCreateHint = document.querySelector("#station-create-hint");
+const startStationPickButton = document.querySelector("#start-station-pick");
 const adminPanel = document.querySelector("#admin-panel");
 const adminUsers = document.querySelector("#admin-users");
 const adminReports = document.querySelector("#admin-reports");
+const newStationLatInput = document.querySelector("#newStationLat");
+const newStationLonInput = document.querySelector("#newStationLon");
 
 let map;
 let markersLayer;
@@ -44,7 +50,7 @@ let visibleStations = [];
 let stationIndex = new Map();
 let reports = [];
 let currentUser = null;
-let fetchStationsTimeoutId = null;
+let isPickingStationLocation = false;
 
 function jumpToMap() {
   mapPanel.scrollIntoView({
@@ -64,27 +70,6 @@ function jumpToMap() {
   }
 
   formMessage.textContent = "Kliknij stacje na mapie, aby ja wybrac.";
-}
-
-function getStationId(element) {
-  return `${element.type}/${element.id}`;
-}
-
-function toStation(element) {
-  const tags = element.tags || {};
-  const houseNumber = tags["addr:housenumber"] ? ` ${tags["addr:housenumber"]}` : "";
-
-  return {
-    id: getStationId(element),
-    name: tags.name || tags.brand || "Stacja paliw",
-    brand: tags.brand || tags.name || "Nieznana siec",
-    city: tags["addr:city"] || tags["addr:place"] || "Polska",
-    address: tags["addr:street"]
-      ? `${tags["addr:street"]}${houseNumber}`
-      : "Adres nieznany",
-    lat: element.lat ?? element.center?.lat,
-    lon: element.lon ?? element.center?.lon
-  };
 }
 
 function escapeHtml(value) {
@@ -136,6 +121,16 @@ async function fetchJson(url, options = {}) {
 async function loadReports() {
   reports = sortReportsByDate(await fetchJson(REPORTS_API_URL));
   reportCount.textContent = String(reports.length);
+}
+
+async function loadStations() {
+  const payload = await fetchJson(STATIONS_API_URL);
+  const fetchedStations = (payload.stations || []).map((station) => ({
+    ...station,
+    brand: station.name || "Stacja paliw"
+  }));
+  mergeStations(fetchedStations);
+  mapStatus.textContent = `Wczytano ${fetchedStations.length} stacji z lokalnej bazy.`;
 }
 
 async function loadCurrentUser() {
@@ -193,6 +188,7 @@ function updateAuthUi() {
     loginPanel.classList.add("hidden");
     registerPanel.classList.add("hidden");
     passwordPanel.classList.remove("hidden");
+    stationCreatePanel.classList.remove("hidden");
   } else {
     authStatus.textContent = "Nie jestes zalogowany";
     authorDisplayInput.value = "";
@@ -200,6 +196,7 @@ function updateAuthUi() {
     showLoginButton.classList.remove("hidden");
     showRegisterButton.classList.remove("hidden");
     passwordPanel.classList.add("hidden");
+    stationCreatePanel.classList.add("hidden");
     adminPanel.classList.add("hidden");
   }
 }
@@ -256,8 +253,18 @@ function getFilteredReportsForStation(stationId) {
 
 function applyFilters() {
   const query = searchInput.value.trim().toLowerCase();
+  const bounds = map ? map.getBounds() : null;
 
   visibleStations = allStations.filter((station) => {
+    if (
+      bounds &&
+      Number.isFinite(station.lat) &&
+      Number.isFinite(station.lon) &&
+      !bounds.contains([station.lat, station.lon])
+    ) {
+      return false;
+    }
+
     const haystack = `${station.name} ${station.brand} ${station.city} ${station.address}`.toLowerCase();
     const matchesText = !query || haystack.includes(query);
 
@@ -371,46 +378,58 @@ function mergeStations(nextStations) {
   applyFilters();
 }
 
-async function fetchStations() {
-  mapStatus.textContent = "Pobieram stacje z mapy...";
-
-  const bounds = map.getBounds();
-
-  try {
-    const params = new URLSearchParams({
-      south: String(bounds.getSouth()),
-      west: String(bounds.getWest()),
-      north: String(bounds.getNorth()),
-      east: String(bounds.getEast())
-    });
-    const data = await fetchJson(`${STATIONS_API_URL}?${params.toString()}`);
-    const fetchedStations = (data.elements || [])
-      .map(toStation)
-      .filter((station) => Number.isFinite(station.lat) && Number.isFinite(station.lon));
-
-    mergeStations(fetchedStations);
-    if (data.stale) {
-      mapStatus.textContent = `Pokazuje ostatnio zapisane dane mapy (${fetchedStations.length} stacji).`;
-    } else if (data.cached) {
-      mapStatus.textContent = `Wczytano ${fetchedStations.length} stacji z pamieci podrecznej mapy.`;
-    } else {
-      mapStatus.textContent = `Wczytano ${fetchedStations.length} stacji dla aktualnego widoku mapy.`;
-    }
-  } catch (error) {
-    console.error("Nie udalo sie pobrac stacji:", error);
-    mapStatus.textContent =
-      "Chwilowy problem z mapa. Zostawiam ostatnio zaladowane stacje i zapisane zgloszenia.";
-  }
+function setStationPickMode(enabled) {
+  isPickingStationLocation = enabled;
+  map.getContainer().classList.toggle("map--picking", enabled);
+  startStationPickButton.classList.toggle("secondary-button--active", enabled);
+  stationCreateHint.textContent = enabled
+    ? "Kliknij punkt na mapie, aby zapisac polozenie nowej stacji."
+    : "Kliknij przycisk ponizej, a potem wybierz punkt na mapie.";
 }
 
-function scheduleFetchStations() {
-  if (fetchStationsTimeoutId) {
-    window.clearTimeout(fetchStationsTimeoutId);
+async function createStation(event) {
+  event.preventDefault();
+
+  if (!currentUser) {
+    formMessage.textContent = "Zaloguj sie, aby dodawac stacje.";
+    return;
   }
 
-  fetchStationsTimeoutId = window.setTimeout(() => {
-    fetchStations();
-  }, 700);
+  const formData = new FormData(stationCreateForm);
+
+  try {
+    const station = await fetchJson(STATIONS_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name: String(formData.get("name") || ""),
+        city: String(formData.get("city") || ""),
+        address: String(formData.get("address") || ""),
+        lat: Number(formData.get("lat")),
+        lon: Number(formData.get("lon"))
+      })
+    });
+
+    allStations.push({
+      ...station,
+      brand: station.name || "Stacja paliw"
+    });
+    stationIndex.set(station.id, {
+      ...station,
+      brand: station.name || "Stacja paliw"
+    });
+    stationCreateForm.reset();
+    stationCreateForm.classList.add("hidden");
+    setStationPickMode(false);
+    map.setView([station.lat, station.lon], Math.max(map.getZoom(), 12));
+    setSelectedStation(station.id);
+    mapStatus.textContent = "Nowa stacja zostala dodana do lokalnej bazy.";
+    applyFilters();
+  } catch (error) {
+    formMessage.textContent = error.message;
+  }
 }
 
 async function submitReport(event) {
@@ -557,7 +576,7 @@ function initMap() {
   markersLayer = L.layerGroup().addTo(map);
 
   map.on("moveend", () => {
-    scheduleFetchStations();
+    applyFilters();
   });
 
   map.on("popupopen", (event) => {
@@ -571,21 +590,30 @@ function initMap() {
       map.closePopup();
     });
   });
+
+  map.on("click", (event) => {
+    if (!isPickingStationLocation) {
+      return;
+    }
+
+    newStationLatInput.value = String(event.latlng.lat);
+    newStationLonInput.value = String(event.latlng.lng);
+    stationCreateForm.classList.remove("hidden");
+    stationCreateHint.textContent =
+      "Polozenie wybrane. Uzupelnij nazwe, miasto i adres nowej stacji.";
+  });
 }
 
 async function bootstrap() {
   initMap();
 
   try {
-    await Promise.all([loadCurrentUser(), loadReports()]);
+    await Promise.all([loadCurrentUser(), loadReports(), loadStations()]);
     await loadAdminOverview();
   } catch (error) {
     console.error("Nie udalo sie zaladowac danych startowych:", error);
     formMessage.textContent = "Backend nie odpowiada. Uruchom serwer Node.";
   }
-
-  mergeStations(getFallbackStationsFromReports());
-  scheduleFetchStations();
 }
 
 stationsList.addEventListener("click", (event) => {
@@ -615,10 +643,24 @@ showRegisterButton.addEventListener("click", () => {
   loginPanel.classList.add("hidden");
 });
 
+startStationPickButton.addEventListener("click", () => {
+  if (!currentUser) {
+    formMessage.textContent = "Zaloguj sie, aby dodawac stacje.";
+    return;
+  }
+
+  setStationPickMode(!isPickingStationLocation);
+  if (!isPickingStationLocation) {
+    stationCreateForm.classList.add("hidden");
+  }
+  jumpToMap();
+});
+
 logoutButton.addEventListener("click", logout);
 searchInput.addEventListener("input", applyFilters);
 fuelFilter.addEventListener("change", applyFilters);
 form.addEventListener("submit", submitReport);
+stationCreateForm.addEventListener("submit", createStation);
 loginForm.addEventListener("submit", (event) =>
   handleAuthSubmit(event, AUTH_LOGIN_API_URL, "Zalogowano pomyslnie.")
 );

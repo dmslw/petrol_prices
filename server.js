@@ -14,13 +14,6 @@ const DB_DIR = path.dirname(DB_PATH);
 const SESSION_COOKIE = "fuel_session";
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
-const OVERPASS_URLS = [
-  "https://overpass-api.de/api/interpreter",
-  "https://lz4.overpass-api.de/api/interpreter",
-  "https://z.overpass-api.de/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter"
-];
-const STATIONS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -33,8 +26,6 @@ const MIME_TYPES = {
   ".jpeg": "image/jpeg",
   ".svg": "image/svg+xml"
 };
-
-const stationsCache = new Map();
 
 const seedReports = [
   {
@@ -66,6 +57,33 @@ const seedReports = [
     price: 3.12,
     author: "Marek",
     createdAt: "2026-04-09T18:40:00.000Z"
+  }
+];
+
+const seedStations = [
+  {
+    id: "node/1",
+    name: "ORLEN",
+    city: "Warszawa",
+    address: "ul. Pulawska 120",
+    lat: 52.1674,
+    lon: 21.0237
+  },
+  {
+    id: "node/2",
+    name: "BP",
+    city: "Gdansk",
+    address: "al. Grunwaldzka 211",
+    lat: 54.4049,
+    lon: 18.5752
+  },
+  {
+    id: "node/3",
+    name: "Shell",
+    city: "Wroclaw",
+    address: "ul. Legnicka 54",
+    lat: 51.1182,
+    lon: 16.9887
   }
 ];
 
@@ -103,6 +121,17 @@ db.exec(`
     created_at TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
+
+  CREATE TABLE IF NOT EXISTS stations (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    city TEXT NOT NULL,
+    address TEXT NOT NULL,
+    lat REAL NOT NULL,
+    lon REAL NOT NULL,
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
 `);
 
 const reportCountRow = db.prepare("SELECT COUNT(*) AS count FROM reports").get();
@@ -130,6 +159,35 @@ if (reportCountRow.count === 0) {
       report.price,
       report.author,
       report.createdAt
+    );
+  }
+}
+
+const stationCountRow = db.prepare("SELECT COUNT(*) AS count FROM stations").get();
+if (stationCountRow.count === 0) {
+  const insertSeedStation = db.prepare(`
+    INSERT INTO stations (
+      id,
+      name,
+      city,
+      address,
+      lat,
+      lon,
+      created_by,
+      created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  for (const station of seedStations) {
+    insertSeedStation.run(
+      station.id,
+      station.name,
+      station.city,
+      station.address,
+      station.lat,
+      station.lon,
+      "system",
+      new Date().toISOString()
     );
   }
 }
@@ -317,6 +375,68 @@ function listUsers() {
     .all();
 }
 
+function listStations() {
+  return db
+    .prepare(`
+      SELECT
+        id,
+        name,
+        city,
+        address,
+        lat,
+        lon,
+        created_by AS createdBy,
+        created_at AS createdAt
+      FROM stations
+      ORDER BY name ASC, city ASC
+    `)
+    .all();
+}
+
+function getStationById(id) {
+  return db
+    .prepare(`
+      SELECT
+        id,
+        name,
+        city,
+        address,
+        lat,
+        lon,
+        created_by AS createdBy,
+        created_at AS createdAt
+      FROM stations
+      WHERE id = ?
+    `)
+    .get(id);
+}
+
+function insertStation(payload, username) {
+  const stationId = createStationId();
+  db.prepare(`
+    INSERT INTO stations (
+      id,
+      name,
+      city,
+      address,
+      lat,
+      lon,
+      created_by,
+      created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    stationId,
+    payload.name.trim(),
+    payload.city.trim(),
+    payload.address.trim(),
+    Number(payload.lat),
+    Number(payload.lon),
+    username,
+    new Date().toISOString()
+  );
+  return stationId;
+}
+
 function sendJson(response, statusCode, payload, headers = {}) {
   response.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
@@ -430,32 +550,33 @@ function validatePasswordChangePayload(payload) {
   return null;
 }
 
-function parseBounds(searchParams) {
-  const south = Number(searchParams.get("south"));
-  const west = Number(searchParams.get("west"));
-  const north = Number(searchParams.get("north"));
-  const east = Number(searchParams.get("east"));
-
-  if (
-    !Number.isFinite(south) ||
-    !Number.isFinite(west) ||
-    !Number.isFinite(north) ||
-    !Number.isFinite(east)
-  ) {
-    return null;
-  }
-
-  return { south, west, north, east };
+function createStationId() {
+  return `custom/${crypto.randomUUID()}`;
 }
 
-function buildStationsCacheKey(bounds) {
-  const round = (value) => value.toFixed(2);
-  return [
-    round(bounds.south),
-    round(bounds.west),
-    round(bounds.north),
-    round(bounds.east)
-  ].join(":");
+function validateStationPayload(payload) {
+  if (!payload || typeof payload !== "object") {
+    return "Niepoprawne dane stacji.";
+  }
+
+  for (const field of ["name", "city", "address"]) {
+    if (typeof payload[field] !== "string" || !payload[field].trim()) {
+      return `Pole ${field} jest wymagane.`;
+    }
+  }
+
+  const lat = Number(payload.lat);
+  const lon = Number(payload.lon);
+
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+    return "Niepoprawna szerokosc geograficzna.";
+  }
+
+  if (!Number.isFinite(lon) || lon < -180 || lon > 180) {
+    return "Niepoprawna dlugosc geograficzna.";
+  }
+
+  return null;
 }
 
 async function handleAuthApi(request, response, pathname) {
@@ -650,82 +771,35 @@ async function handleAdminApi(request, response, pathname) {
   sendNotFound(response);
 }
 
-async function handleStationsApi(response, searchParams) {
-  const bounds = parseBounds(searchParams);
-  if (!bounds) {
-    sendJson(response, 400, { error: "Niepoprawne granice mapy." });
+async function handleStationsApi(request, response) {
+  if (request.method === "GET") {
+    sendJson(response, 200, { stations: listStations() });
     return;
   }
 
-  const cacheKey = buildStationsCacheKey(bounds);
-  const cachedEntry = stationsCache.get(cacheKey);
-  if (cachedEntry && Date.now() - cachedEntry.savedAt < STATIONS_CACHE_TTL_MS) {
-    sendJson(response, 200, {
-      ...cachedEntry.payload,
-      cached: true
-    });
+  if (request.method !== "POST") {
+    sendMethodNotAllowed(response);
     return;
   }
 
-  const query = `
-    [out:json][timeout:25];
-    (
-      node["amenity"="fuel"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
-      way["amenity"="fuel"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
-      relation["amenity"="fuel"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});
-    );
-    out center tags;
-  `;
-
-  let lastError = null;
-
-  for (const overpassUrl of OVERPASS_URLS) {
-    try {
-      const upstreamResponse = await fetch(overpassUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "text/plain;charset=UTF-8",
-          "User-Agent": "ceny-paliw/1.0"
-        },
-        body: query,
-        signal: AbortSignal.timeout(12000)
-      });
-
-      if (!upstreamResponse.ok) {
-        throw new Error(`Overpass error ${upstreamResponse.status}`);
-      }
-
-      const data = await upstreamResponse.json();
-      stationsCache.set(cacheKey, {
-        savedAt: Date.now(),
-        payload: data
-      });
-      sendJson(response, 200, {
-        ...data,
-        source: overpassUrl
-      });
-      return;
-    } catch (error) {
-      lastError = error;
-      console.error(`Stations fetch failed for ${overpassUrl}:`, error.message);
-    }
+  const user = requireAuth(request, response);
+  if (!user) {
+    return;
   }
 
-  {
-    if (cachedEntry) {
-      sendJson(response, 200, {
-        ...cachedEntry.payload,
-        cached: true,
-        stale: true
-      });
-      return;
-    }
-
-    sendJson(response, 502, {
-      error: "Nie udalo sie pobrac stacji z Overpass.",
-      details: lastError?.message || null
-    });
+  const payload = await readJsonBody(request, response);
+  if (!payload) {
+    return;
   }
+
+  const validationError = validateStationPayload(payload);
+  if (validationError) {
+    sendJson(response, 400, { error: validationError });
+    return;
+  }
+
+  const stationId = insertStation(payload, user.username);
+  sendJson(response, 201, getStationById(stationId));
 }
 
 async function handleApi(request, response, pathname) {
@@ -736,11 +810,7 @@ async function handleApi(request, response, pathname) {
     }
 
     if (pathname === "/api/stations") {
-      const requestUrl = new URL(
-        request.url,
-        `http://${request.headers.host || `${HOST}:${PORT}`}`
-      );
-      await handleStationsApi(response, requestUrl.searchParams);
+      await handleStationsApi(request, response);
       return;
     }
 
