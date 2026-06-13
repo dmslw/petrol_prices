@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: ceny-paliw
+    runtime: node
+    plan: starter
+    buildCommand: ""
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 10000

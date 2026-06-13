@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ceny Paliw</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <div class="hero__copy">
+          <p class="eyebrow">Spolecznosciowa baza cen</p>
+          <h1>Ceny paliw zgloszone przez kierowcow</h1>
+          <p class="hero__text">
+            Sprawdzaj ceny na stacjach i dodawaj najnowsze odczyty z Twojej
+            okolicy.
+          </p>
+        </div>
+        <div class="hero__stats">
+          <article>
+            <span id="station-count">0</span>
+            <p>stacji w bazie</p>
+          </article>
+          <article>
+            <span id="report-count">0</span>
+            <p>zgloszonych cen</p>
+          </article>
+        </div>
+      </header>
+
+      <section class="auth-bar panel">
+        <div>
+          <p class="eyebrow">Konto</p>
+          <h2 id="auth-status">Nie jestes zalogowany</h2>
+        </div>
+        <div class="auth-bar__actions">
+          <button id="show-login" type="button" class="secondary-button">Logowanie</button>
+          <button id="show-register" type="button" class="secondary-button">Rejestracja</button>
+          <button id="logout-button" type="button" class="secondary-button hidden">Wyloguj</button>
+        </div>
+      </section>
+
+      <main class="layout">
+        <section class="content">
+          <section class="panel panel--map">
+            <div class="panel__header">
+              <p class="eyebrow">Mapa stacji</p>
+              <h2>Stacje paliw z OpenStreetMap</h2>
+            </div>
+
+            <div id="map" class="map"></div>
+            <p id="map-status" class="form-message" aria-live="polite"></p>
+          </section>
+
+          <section class="panel">
+            <div class="panel__header">
+              <p class="eyebrow">Lista stacji</p>
+              <h2>Ostatnie ceny na stacjach paliw</h2>
+            </div>
+
+            <div class="filters">
+              <label>
+                Szukaj stacji lub miasta
+                <input
+                  id="searchInput"
+                  type="search"
+                  placeholder="np. ORLEN, Warszawa, Shell"
+                />
+              </label>
+
+              <label>
+                Filtr paliwa
+                <select id="fuelFilter">
+                  <option value="ALL">Wszystkie</option>
+                  <option value="PB95">PB95</option>
+                  <option value="PB98">PB98</option>
+                  <option value="ON">ON</option>
+                  <option value="LPG">LPG</option>
+                </select>
+              </label>
+            </div>
+
+            <div id="stations-list" class="stations-list"></div>
+          </section>
+        </section>
+
+        <aside class="panel panel--form">
+          <div class="panel__header">
+            <p class="eyebrow">Dodaj cene</p>
+            <h2>Zglos aktualna cene paliwa</h2>
+          </div>
+
+          <section id="login-panel" class="auth-panel hidden">
+            <h3>Logowanie</h3>
+            <form id="login-form" class="price-form">
+              <label>
+                Login
+                <input id="loginUsername" name="username" type="text" required />
+              </label>
+              <label>
+                Haslo
+                <input id="loginPassword" name="password" type="password" required />
+              </label>
+              <button type="submit">Zaloguj sie</button>
+            </form>
+          </section>
+
+          <section id="register-panel" class="auth-panel hidden">
+            <h3>Rejestracja</h3>
+            <form id="register-form" class="price-form">
+              <label>
+                Login
+                <input id="registerUsername" name="username" type="text" required />
+              </label>
+              <label>
+                Haslo
+                <input id="registerPassword" name="password" type="password" required />
+              </label>
+              <button type="submit">Utworz konto</button>
+            </form>
+          </section>
+
+          <form id="price-form" class="price-form">
+            <label>
+              Wybrana stacja
+              <input
+                id="stationName"
+                name="stationName"
+                type="text"
+                placeholder="Kliknij stacje na mapie"
+                readonly
+                required
+              />
+            </label>
+
+            <input id="stationId" name="stationId" type="hidden" required />
+
+            <label>
+              Rodzaj paliwa
+              <select id="fuelType" name="fuelType" required>
+                <option value="PB95">PB95</option>
+                <option value="PB98">PB98</option>
+                <option value="ON">ON</option>
+                <option value="LPG">LPG</option>
+              </select>
+            </label>
+
+            <label>
+              Cena za litr (PLN)
+              <input
+                id="price"
+                name="price"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="np. 6.49"
+                required
+              />
+            </label>
+
+            <label>
+              Zalogowany uzytkownik
+              <input
+                id="authorDisplay"
+                type="text"
+                placeholder="Zaloguj sie, aby dodawac ceny"
+                readonly
+              />
+            </label>
+
+            <button type="submit">Dodaj zgloszenie</button>
+          </form>
+
+          <p id="form-message" class="form-message" aria-live="polite"></p>
+
+          <section id="admin-panel" class="admin-panel hidden">
+            <div class="panel__header">
+              <p class="eyebrow">Admin</p>
+              <h2>Panel administratora</h2>
+            </div>
+
+            <div class="admin-grid">
+              <div>
+                <h3>Uzytkownicy</h3>
+                <div id="admin-users" class="admin-list"></div>
+              </div>
+              <div>
+                <h3>Zgloszenia</h3>
+                <div id="admin-reports" class="admin-list"></div>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="app.js"></script>
+  </body>
+</html>
