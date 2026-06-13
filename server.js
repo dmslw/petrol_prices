@@ -15,6 +15,7 @@ const SESSION_COOKIE = "fuel_session";
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+const STATIONS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -27,6 +28,8 @@ const MIME_TYPES = {
   ".jpeg": "image/jpeg",
   ".svg": "image/svg+xml"
 };
+
+const stationsCache = new Map();
 
 const seedReports = [
   {
@@ -440,6 +443,16 @@ function parseBounds(searchParams) {
   return { south, west, north, east };
 }
 
+function buildStationsCacheKey(bounds) {
+  const round = (value) => value.toFixed(2);
+  return [
+    round(bounds.south),
+    round(bounds.west),
+    round(bounds.north),
+    round(bounds.east)
+  ].join(":");
+}
+
 async function handleAuthApi(request, response, pathname) {
   if (pathname === "/api/auth/register" && request.method === "POST") {
     const payload = await readJsonBody(request, response);
@@ -639,6 +652,16 @@ async function handleStationsApi(response, searchParams) {
     return;
   }
 
+  const cacheKey = buildStationsCacheKey(bounds);
+  const cachedEntry = stationsCache.get(cacheKey);
+  if (cachedEntry && Date.now() - cachedEntry.savedAt < STATIONS_CACHE_TTL_MS) {
+    sendJson(response, 200, {
+      ...cachedEntry.payload,
+      cached: true
+    });
+    return;
+  }
+
   const query = `
     [out:json][timeout:25];
     (
@@ -649,22 +672,39 @@ async function handleStationsApi(response, searchParams) {
     out center tags;
   `;
 
-  const upstreamResponse = await fetch(OVERPASS_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/plain;charset=UTF-8",
-      "User-Agent": "ceny-paliw/1.0"
-    },
-    body: query
-  });
+  try {
+    const upstreamResponse = await fetch(OVERPASS_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=UTF-8",
+        "User-Agent": "ceny-paliw/1.0"
+      },
+      body: query,
+      signal: AbortSignal.timeout(12000)
+    });
 
-  if (!upstreamResponse.ok) {
-    sendJson(response, 502, { error: `Overpass error ${upstreamResponse.status}` });
-    return;
+    if (!upstreamResponse.ok) {
+      throw new Error(`Overpass error ${upstreamResponse.status}`);
+    }
+
+    const data = await upstreamResponse.json();
+    stationsCache.set(cacheKey, {
+      savedAt: Date.now(),
+      payload: data
+    });
+    sendJson(response, 200, data);
+  } catch (error) {
+    if (cachedEntry) {
+      sendJson(response, 200, {
+        ...cachedEntry.payload,
+        cached: true,
+        stale: true
+      });
+      return;
+    }
+
+    sendJson(response, 502, { error: "Nie udalo sie pobrac stacji z Overpass." });
   }
-
-  const data = await upstreamResponse.json();
-  sendJson(response, 200, data);
 }
 
 async function handleApi(request, response, pathname) {

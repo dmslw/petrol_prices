@@ -44,6 +44,7 @@ let visibleStations = [];
 let stationIndex = new Map();
 let reports = [];
 let currentUser = null;
+let fetchStationsTimeoutId = null;
 
 function jumpToMap() {
   mapPanel.scrollIntoView({
@@ -388,12 +389,28 @@ async function fetchStations() {
       .filter((station) => Number.isFinite(station.lat) && Number.isFinite(station.lon));
 
     mergeStations(fetchedStations);
-    mapStatus.textContent = `Wczytano ${fetchedStations.length} stacji dla aktualnego widoku mapy.`;
+    if (data.stale) {
+      mapStatus.textContent = `Pokazuje ostatnio zapisane dane mapy (${fetchedStations.length} stacji).`;
+    } else if (data.cached) {
+      mapStatus.textContent = `Wczytano ${fetchedStations.length} stacji z pamieci podrecznej mapy.`;
+    } else {
+      mapStatus.textContent = `Wczytano ${fetchedStations.length} stacji dla aktualnego widoku mapy.`;
+    }
   } catch (error) {
     console.error("Nie udalo sie pobrac stacji:", error);
-    mergeStations(getFallbackStationsFromReports());
-    mapStatus.textContent = "Nie udalo sie pobrac danych z mapy. Pokazuje stacje z zapisanych zgloszen.";
+    mapStatus.textContent =
+      "Chwilowy problem z mapa. Zostawiam ostatnio zaladowane stacje i zapisane zgloszenia.";
   }
+}
+
+function scheduleFetchStations() {
+  if (fetchStationsTimeoutId) {
+    window.clearTimeout(fetchStationsTimeoutId);
+  }
+
+  fetchStationsTimeoutId = window.setTimeout(() => {
+    fetchStations();
+  }, 700);
 }
 
 async function submitReport(event) {
@@ -540,7 +557,7 @@ function initMap() {
   markersLayer = L.layerGroup().addTo(map);
 
   map.on("moveend", () => {
-    fetchStations();
+    scheduleFetchStations();
   });
 
   map.on("popupopen", (event) => {
@@ -568,7 +585,7 @@ async function bootstrap() {
   }
 
   mergeStations(getFallbackStationsFromReports());
-  fetchStations();
+  scheduleFetchStations();
 }
 
 stationsList.addEventListener("click", (event) => {
