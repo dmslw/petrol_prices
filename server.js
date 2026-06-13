@@ -405,6 +405,22 @@ function validateAuthPayload(payload) {
   return null;
 }
 
+function validatePasswordChangePayload(payload) {
+  if (!payload || typeof payload !== "object") {
+    return "Niepoprawne dane.";
+  }
+
+  if (typeof payload.currentPassword !== "string" || !payload.currentPassword) {
+    return "Podaj obecne haslo.";
+  }
+
+  if (typeof payload.newPassword !== "string" || payload.newPassword.length < 4) {
+    return "Nowe haslo musi miec co najmniej 4 znaki.";
+  }
+
+  return null;
+}
+
 async function handleAuthApi(request, response, pathname) {
   if (pathname === "/api/auth/register" && request.method === "POST") {
     const payload = await readJsonBody(request, response);
@@ -486,6 +502,41 @@ async function handleAuthApi(request, response, pathname) {
         "Set-Cookie": `${SESSION_COOKIE}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`
       }
     );
+    return;
+  }
+
+  if (pathname === "/api/auth/change-password" && request.method === "POST") {
+    const user = requireAuth(request, response);
+    if (!user) {
+      return;
+    }
+
+    const payload = await readJsonBody(request, response);
+    if (!payload) {
+      return;
+    }
+
+    const validationError = validatePasswordChangePayload(payload);
+    if (validationError) {
+      sendJson(response, 400, { error: validationError });
+      return;
+    }
+
+    const userRow = db
+      .prepare("SELECT id, password_hash AS passwordHash FROM users WHERE id = ?")
+      .get(user.id);
+
+    if (!userRow || !verifyPassword(payload.currentPassword, userRow.passwordHash)) {
+      sendJson(response, 401, { error: "Obecne haslo jest niepoprawne." });
+      return;
+    }
+
+    db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(
+      hashPassword(payload.newPassword),
+      user.id
+    );
+
+    sendJson(response, 200, { ok: true });
     return;
   }
 

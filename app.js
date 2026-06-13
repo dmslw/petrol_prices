@@ -4,6 +4,7 @@ const AUTH_ME_API_URL = "/api/auth/me";
 const AUTH_LOGIN_API_URL = "/api/auth/login";
 const AUTH_REGISTER_API_URL = "/api/auth/register";
 const AUTH_LOGOUT_API_URL = "/api/auth/logout";
+const AUTH_CHANGE_PASSWORD_API_URL = "/api/auth/change-password";
 const ADMIN_OVERVIEW_API_URL = "/api/admin/overview";
 const POLAND_VIEW = {
   center: [52.1, 19.4],
@@ -13,6 +14,7 @@ const POLAND_VIEW = {
 const form = document.querySelector("#price-form");
 const loginForm = document.querySelector("#login-form");
 const registerForm = document.querySelector("#register-form");
+const passwordForm = document.querySelector("#password-form");
 const stationIdInput = document.querySelector("#stationId");
 const stationNameInput = document.querySelector("#stationName");
 const authorDisplayInput = document.querySelector("#authorDisplay");
@@ -29,6 +31,7 @@ const showRegisterButton = document.querySelector("#show-register");
 const logoutButton = document.querySelector("#logout-button");
 const loginPanel = document.querySelector("#login-panel");
 const registerPanel = document.querySelector("#register-panel");
+const passwordPanel = document.querySelector("#password-panel");
 const adminPanel = document.querySelector("#admin-panel");
 const adminUsers = document.querySelector("#admin-users");
 const adminReports = document.querySelector("#admin-reports");
@@ -167,12 +170,14 @@ function updateAuthUi() {
     showRegisterButton.classList.add("hidden");
     loginPanel.classList.add("hidden");
     registerPanel.classList.add("hidden");
+    passwordPanel.classList.remove("hidden");
   } else {
     authStatus.textContent = "Nie jestes zalogowany";
     authorDisplayInput.value = "";
     logoutButton.classList.add("hidden");
     showLoginButton.classList.remove("hidden");
     showRegisterButton.classList.remove("hidden");
+    passwordPanel.classList.add("hidden");
     adminPanel.classList.add("hidden");
   }
 }
@@ -471,7 +476,37 @@ async function logout() {
     await fetchJson(AUTH_LOGOUT_API_URL, { method: "POST" });
     currentUser = null;
     updateAuthUi();
+    passwordForm.reset();
     formMessage.textContent = "Wylogowano.";
+  } catch (error) {
+    formMessage.textContent = error.message;
+  }
+}
+
+async function changePassword(event) {
+  event.preventDefault();
+
+  if (!currentUser) {
+    formMessage.textContent = "Zaloguj sie, aby zmienic haslo.";
+    return;
+  }
+
+  const formData = new FormData(passwordForm);
+
+  try {
+    await fetchJson(AUTH_CHANGE_PASSWORD_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        currentPassword: String(formData.get("currentPassword") || ""),
+        newPassword: String(formData.get("newPassword") || "")
+      })
+    });
+
+    passwordForm.reset();
+    formMessage.textContent = "Haslo zostalo zmienione.";
   } catch (error) {
     formMessage.textContent = error.message;
   }
@@ -567,5 +602,6 @@ loginForm.addEventListener("submit", (event) =>
 registerForm.addEventListener("submit", (event) =>
   handleAuthSubmit(event, AUTH_REGISTER_API_URL, "Konto utworzone i zalogowane.")
 );
+passwordForm.addEventListener("submit", changePassword);
 
 bootstrap();

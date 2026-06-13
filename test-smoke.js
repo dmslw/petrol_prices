@@ -103,6 +103,25 @@ async function run() {
 
     const createdReport = await reportResponse.json();
 
+    const changePasswordResponse = await fetch(
+      `http://127.0.0.1:${port}/api/auth/change-password`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: userCookie
+        },
+        body: JSON.stringify({
+          currentPassword: "pass1234",
+          newPassword: "pass5678"
+        })
+      }
+    );
+
+    if (changePasswordResponse.status !== 200) {
+      throw new Error(`Zmiana hasla nie powiodla sie: ${changePasswordResponse.status}`);
+    }
+
     const adminLoginResponse = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
       method: "POST",
       headers: {
