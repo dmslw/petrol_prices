@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Ceny Paliw">
+  <rect width="32" height="32" rx="7" fill="#bd4f19" />
+  <path
+    d="M16 5 C 11 12, 8.5 16.5, 11 21.5 a5.2 5.2 0 0 0 10 0 C 23.5 16.5, 21 12, 16 5 Z"
+    fill="#f4bb44"
+  />
+</svg>

@@ -135,3 +135,19 @@ Repo zawiera plik `render.yaml`.
 - [x] regulamin i polityka prywatnosci (uzupelnic dane administratora w plikach `regulamin.html` i `polityka-prywatnosci.html`)
 - [x] backup bazy danych (`npm run backup:db`)
 - [x] limit rozmiaru zadania i naglowki bezpieczenstwa (CSP, nosniff, X-Frame-Options)
+- [x] podstawowe SEO (meta description, Open Graph, favicon, robots.txt, sitemap.xml, dane strukturalne)
+
+## SEO i domena
+
+Strona ma podstawowe SEO: `meta description`, Open Graph/Twitter Card, favicone (`favicon.svg`),
+`robots.txt`, `sitemap.xml`, link `canonical` oraz dane strukturalne JSON-LD.
+
+Przed publikacja podmien placeholder `https://twoja-domena.pl` na swoja domene w plikach:
+
+- `index.html` (canonical, og:url, JSON-LD)
+- `regulamin.html` i `polityka-prywatnosci.html` (canonical)
+- `robots.txt` (adres sitemap)
+- `sitemap.xml` (adresy stron i `lastmod`)
+
+Warto tez dodac obrazek podgladu social media (1200x630 px) i wskazac go w `og:image`,
+oraz zarejestrowac strone w Google Search Console i wyslac tam `sitemap.xml`.
