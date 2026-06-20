@@ -1048,7 +1048,8 @@ async function handleStatic(response, pathname) {
     const data = await fsp.readFile(filePath);
     const extension = path.extname(filePath).toLowerCase();
     response.writeHead(200, {
-      "Content-Type": MIME_TYPES[extension] || "application/octet-stream"
+      "Content-Type": MIME_TYPES[extension] || "application/octet-stream",
+      "Cache-Control": "no-cache"
     });
     response.end(data);
   } catch (error) {
