@@ -14,6 +14,12 @@ const DB_DIR = path.dirname(DB_PATH);
 const SESSION_COOKIE = "fuel_session";
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+const SESSION_TTL_DAYS = Number(process.env.SESSION_TTL_DAYS || 30);
+const SESSION_MAX_AGE_SECONDS = Math.max(1, Math.round(SESSION_TTL_DAYS * 24 * 60 * 60));
+const SESSION_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+const SECURE_COOKIES =
+  process.env.SECURE_COOKIES === "true" ||
+  (process.env.SECURE_COOKIES !== "false" && process.env.NODE_ENV === "production");
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -128,6 +134,7 @@ db.exec(`
     token TEXT NOT NULL UNIQUE,
     user_id INTEGER NOT NULL,
     created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL DEFAULT '',
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
 
@@ -149,6 +156,7 @@ db.exec(`
 ensureColumn("stations", "source", "TEXT NOT NULL DEFAULT 'manual'");
 ensureColumn("stations", "updated_at", "TEXT NOT NULL DEFAULT ''");
 ensureColumn("stations", "is_user_created", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("sessions", "expires_at", "TEXT NOT NULL DEFAULT ''");
 
 const reportCountRow = db.prepare("SELECT COUNT(*) AS count FROM reports").get();
 if (reportCountRow.count === 0) {
@@ -274,29 +282,68 @@ function getCurrentUser(request) {
     return null;
   }
 
-  return (
-    db
-      .prepare(`
-        SELECT
-          users.id,
-          users.username,
-          users.role,
-          users.created_at AS createdAt
-        FROM sessions
-        JOIN users ON users.id = sessions.user_id
-        WHERE sessions.token = ?
-      `)
-      .get(token) || null
-  );
+  const now = new Date().toISOString();
+  const user = db
+    .prepare(`
+      SELECT
+        users.id,
+        users.username,
+        users.role,
+        users.created_at AS createdAt
+      FROM sessions
+      JOIN users ON users.id = sessions.user_id
+      WHERE sessions.token = ? AND sessions.expires_at > ?
+    `)
+    .get(token, now);
+
+  if (!user) {
+    db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
+    return null;
+  }
+
+  return user;
 }
 
 function createSession(userId) {
   const token = crypto.randomBytes(32).toString("hex");
+  const now = Date.now();
+  const createdAt = new Date(now).toISOString();
+  const expiresAt = new Date(now + SESSION_MAX_AGE_SECONDS * 1000).toISOString();
   db.prepare(`
-    INSERT INTO sessions (token, user_id, created_at)
-    VALUES (?, ?, ?)
-  `).run(token, userId, new Date().toISOString());
+    INSERT INTO sessions (token, user_id, created_at, expires_at)
+    VALUES (?, ?, ?, ?)
+  `).run(token, userId, createdAt, expiresAt);
   return token;
+}
+
+function deleteExpiredSessions() {
+  try {
+    db.prepare("DELETE FROM sessions WHERE expires_at <= ?").run(new Date().toISOString());
+  } catch (error) {
+    console.error("Nie udalo sie usunac wygaslych sesji:", error);
+  }
+}
+
+function buildSessionCookie(token) {
+  const parts = [
+    `${SESSION_COOKIE}=${token}`,
+    "HttpOnly",
+    "Path=/",
+    "SameSite=Lax",
+    `Max-Age=${SESSION_MAX_AGE_SECONDS}`
+  ];
+  if (SECURE_COOKIES) {
+    parts.push("Secure");
+  }
+  return parts.join("; ");
+}
+
+function buildClearCookie() {
+  const parts = [`${SESSION_COOKIE}=`, "HttpOnly", "Path=/", "SameSite=Lax", "Max-Age=0"];
+  if (SECURE_COOKIES) {
+    parts.push("Secure");
+  }
+  return parts.join("; ");
 }
 
 function clearSession(request) {
@@ -652,7 +699,7 @@ async function handleAuthApi(request, response, pathname) {
       201,
       { user },
       {
-        "Set-Cookie": `${SESSION_COOKIE}=${token}; HttpOnly; Path=/; SameSite=Lax`
+        "Set-Cookie": buildSessionCookie(token)
       }
     );
     return;
@@ -679,7 +726,7 @@ async function handleAuthApi(request, response, pathname) {
       200,
       { user: sanitizeUser(userRow) },
       {
-        "Set-Cookie": `${SESSION_COOKIE}=${token}; HttpOnly; Path=/; SameSite=Lax`
+        "Set-Cookie": buildSessionCookie(token)
       }
     );
     return;
@@ -692,7 +739,7 @@ async function handleAuthApi(request, response, pathname) {
       200,
       { ok: true },
       {
-        "Set-Cookie": `${SESSION_COOKIE}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`
+        "Set-Cookie": buildClearCookie()
       }
     );
     return;
@@ -913,6 +960,12 @@ function createServer() {
 }
 
 if (require.main === module) {
+  deleteExpiredSessions();
+  const cleanupTimer = setInterval(deleteExpiredSessions, SESSION_CLEANUP_INTERVAL_MS);
+  if (typeof cleanupTimer.unref === "function") {
+    cleanupTimer.unref();
+  }
+
   const server = createServer();
   server.listen(PORT, HOST, () => {
     console.log(`Serwer dziala na http://${HOST}:${PORT}`);
