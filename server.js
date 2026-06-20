@@ -20,6 +20,10 @@ const SESSION_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 const SECURE_COOKIES =
   process.env.SECURE_COOKIES === "true" ||
   (process.env.SECURE_COOKIES !== "false" && process.env.NODE_ENV === "production");
+const MAX_BODY_BYTES = Math.max(1024, Number(process.env.MAX_BODY_BYTES || 1024 * 1024));
+const RATE_LIMIT_WINDOW_MS = Math.max(1000, Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000));
+const RATE_LIMIT_MAX_ATTEMPTS = Math.max(1, Number(process.env.AUTH_RATE_LIMIT_MAX || 10));
+const RATE_LIMIT_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -537,10 +541,17 @@ function sendMethodNotAllowed(response) {
   response.end("Method not allowed");
 }
 
+class PayloadTooLargeError extends Error {}
+
 async function readRequestBody(request) {
   const chunks = [];
+  let total = 0;
 
   for await (const chunk of request) {
+    total += chunk.length;
+    if (total > MAX_BODY_BYTES) {
+      throw new PayloadTooLargeError();
+    }
     chunks.push(chunk);
   }
 
@@ -552,9 +563,66 @@ async function readJsonBody(request, response) {
     const rawBody = await readRequestBody(request);
     return JSON.parse(rawBody || "{}");
   } catch (error) {
-    sendJson(response, 400, { error: "Niepoprawny JSON." });
+    if (error instanceof PayloadTooLargeError) {
+      sendJson(response, 413, { error: "Zadanie jest zbyt duze." }, { Connection: "close" });
+    } else {
+      sendJson(response, 400, { error: "Niepoprawny JSON." });
+    }
     return null;
   }
+}
+
+const rateLimitBuckets = new Map();
+
+function getClientIp(request) {
+  const forwarded = request.headers["x-forwarded-for"];
+  if (forwarded) {
+    return String(forwarded).split(",")[0].trim();
+  }
+
+  return request.socket?.remoteAddress || "unknown";
+}
+
+function checkRateLimit(key) {
+  const now = Date.now();
+  const windowStart = now - RATE_LIMIT_WINDOW_MS;
+  const hits = (rateLimitBuckets.get(key) || []).filter((timestamp) => timestamp > windowStart);
+
+  if (hits.length >= RATE_LIMIT_MAX_ATTEMPTS) {
+    const retryAfterMs = hits[0] + RATE_LIMIT_WINDOW_MS - now;
+    return { allowed: false, retryAfterSeconds: Math.max(1, Math.ceil(retryAfterMs / 1000)) };
+  }
+
+  hits.push(now);
+  rateLimitBuckets.set(key, hits);
+  return { allowed: true };
+}
+
+function cleanupRateLimits() {
+  const windowStart = Date.now() - RATE_LIMIT_WINDOW_MS;
+  for (const [key, hits] of rateLimitBuckets) {
+    const fresh = hits.filter((timestamp) => timestamp > windowStart);
+    if (fresh.length === 0) {
+      rateLimitBuckets.delete(key);
+    } else {
+      rateLimitBuckets.set(key, fresh);
+    }
+  }
+}
+
+function enforceRateLimit(request, response, bucket) {
+  const result = checkRateLimit(`${bucket}:${getClientIp(request)}`);
+  if (!result.allowed) {
+    sendJson(
+      response,
+      429,
+      { error: "Zbyt wiele prob. Sprobuj ponownie za chwile." },
+      { "Retry-After": String(result.retryAfterSeconds) }
+    );
+    return false;
+  }
+
+  return true;
 }
 
 function requireAuth(request, response) {
@@ -667,6 +735,10 @@ function validateStationPayload(payload) {
 
 async function handleAuthApi(request, response, pathname) {
   if (pathname === "/api/auth/register" && request.method === "POST") {
+    if (!enforceRateLimit(request, response, "register")) {
+      return;
+    }
+
     const payload = await readJsonBody(request, response);
     if (!payload) {
       return;
@@ -710,6 +782,10 @@ async function handleAuthApi(request, response, pathname) {
   }
 
   if (pathname === "/api/auth/login" && request.method === "POST") {
+    if (!enforceRateLimit(request, response, "login")) {
+      return;
+    }
+
     const payload = await readJsonBody(request, response);
     if (!payload) {
       return;
@@ -977,8 +1053,32 @@ async function handleStatic(response, pathname) {
   }
 }
 
+function applySecurityHeaders(response) {
+  response.setHeader("X-Content-Type-Options", "nosniff");
+  response.setHeader("X-Frame-Options", "DENY");
+  response.setHeader("Referrer-Policy", "no-referrer");
+  response.setHeader(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self' https://unpkg.com",
+      "style-src 'self' https://unpkg.com 'unsafe-inline'",
+      "img-src 'self' data: https://unpkg.com https://*.tile.openstreetmap.org",
+      "connect-src 'self'",
+      "font-src 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "frame-ancestors 'none'"
+    ].join("; ")
+  );
+  if (SECURE_COOKIES) {
+    response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+}
+
 function createServer() {
   return http.createServer(async (request, response) => {
+    applySecurityHeaders(response);
     const url = new URL(request.url, `http://${request.headers.host || `${HOST}:${PORT}`}`);
     const pathname = decodeURIComponent(url.pathname);
 
@@ -996,6 +1096,11 @@ if (require.main === module) {
   const cleanupTimer = setInterval(deleteExpiredSessions, SESSION_CLEANUP_INTERVAL_MS);
   if (typeof cleanupTimer.unref === "function") {
     cleanupTimer.unref();
+  }
+
+  const rateLimitTimer = setInterval(cleanupRateLimits, RATE_LIMIT_CLEANUP_INTERVAL_MS);
+  if (typeof rateLimitTimer.unref === "function") {
+    rateLimitTimer.unref();
   }
 
   const server = createServer();

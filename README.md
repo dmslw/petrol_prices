@@ -97,6 +97,10 @@ zalogowaniu tymczasowym haslem powinien ustawic wlasne w sekcji `Zmiana hasla`.
 - `DB_PATH` - sciezka do pliku SQLite
 - `ADMIN_USERNAME` - login admina przy pierwszym uruchomieniu
 - `ADMIN_PASSWORD` - haslo admina przy pierwszym uruchomieniu
+- `SECURE_COOKIES` - `true`/`false`, wymusza ciasteczka `Secure` i naglowek HSTS (domyslnie wlaczone na produkcji)
+- `MAX_BODY_BYTES` - maksymalny rozmiar zadania w bajtach (domyslnie `1048576`)
+- `AUTH_RATE_LIMIT_MAX` - liczba prob logowania/rejestracji na okno czasu i adres IP (domyslnie `10`)
+- `AUTH_RATE_LIMIT_WINDOW_MS` - dlugosc okna rate limitera w ms (domyslnie `900000`)
 
 ## Publikacja na Railway
 
@@ -127,6 +131,7 @@ Repo zawiera plik `render.yaml`.
 
 - [x] zmiana hasla
 - [x] reset hasla (przez admina)
-- [ ] rate limiting i captcha
+- [x] rate limiting na logowaniu/rejestracji (captcha opcjonalnie)
 - [x] regulamin i polityka prywatnosci (uzupelnic dane administratora w plikach `regulamin.html` i `polityka-prywatnosci.html`)
 - [x] backup bazy danych (`npm run backup:db`)
+- [x] limit rozmiaru zadania i naglowki bezpieczenstwa (CSP, nosniff, X-Frame-Options)
