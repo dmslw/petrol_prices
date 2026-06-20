@@ -176,6 +176,46 @@ async function run() {
       throw new Error(`Panel admina nie dziala: ${overviewResponse.status}`);
     }
 
+    const overview = await overviewResponse.json();
+    const testerUser = overview.users.find((user) => user.username === "tester123");
+    if (!testerUser) {
+      throw new Error("Nie znaleziono uzytkownika tester123 w panelu admina.");
+    }
+
+    const resetResponse = await fetch(
+      `http://127.0.0.1:${port}/api/admin/users/${testerUser.id}/reset-password`,
+      {
+        method: "POST",
+        headers: {
+          Cookie: adminCookie
+        }
+      }
+    );
+
+    if (resetResponse.status !== 200) {
+      throw new Error(`Reset hasla nie powiodl sie: ${resetResponse.status}`);
+    }
+
+    const { temporaryPassword } = await resetResponse.json();
+    if (!temporaryPassword) {
+      throw new Error("Brak tymczasowego hasla po resecie.");
+    }
+
+    const reloginResponse = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        username: "tester123",
+        password: temporaryPassword
+      })
+    });
+
+    if (reloginResponse.status !== 200) {
+      throw new Error(`Logowanie tymczasowym haslem nie dziala: ${reloginResponse.status}`);
+    }
+
     const deleteResponse = await fetch(
       `http://127.0.0.1:${port}/api/reports/${createdReport.id}`,
       {

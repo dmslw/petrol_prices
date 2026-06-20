@@ -6,6 +6,7 @@ const AUTH_REGISTER_API_URL = "/api/auth/register";
 const AUTH_LOGOUT_API_URL = "/api/auth/logout";
 const AUTH_CHANGE_PASSWORD_API_URL = "/api/auth/change-password";
 const ADMIN_OVERVIEW_API_URL = "/api/admin/overview";
+const ADMIN_USERS_API_URL = "/api/admin/users";
 const POLAND_VIEW = {
   center: [52.1, 19.4],
   zoom: 6
@@ -154,6 +155,9 @@ async function loadAdminOverview() {
         <article class="admin-item">
           <strong>${escapeHtml(user.username)}</strong>
           <p>Rola: ${escapeHtml(user.role)} | Konto od ${formatDate(user.createdAt)}</p>
+          <button type="button" class="secondary-button" data-reset-user="${user.id}">
+            Resetuj haslo
+          </button>
         </article>
       `
     )
@@ -579,6 +583,26 @@ async function changePassword(event) {
   }
 }
 
+async function resetUserPassword(userId) {
+  if (!window.confirm("Zresetowac haslo tego uzytkownika? Jego biezace sesje zostana wylogowane.")) {
+    return;
+  }
+
+  try {
+    const payload = await fetchJson(`${ADMIN_USERS_API_URL}/${userId}/reset-password`, {
+      method: "POST"
+    });
+
+    window.prompt(
+      `Tymczasowe haslo dla ${payload.username} (skopiuj i przekaz uzytkownikowi):`,
+      payload.temporaryPassword
+    );
+    formMessage.textContent = `Zresetowano haslo uzytkownika ${payload.username}.`;
+  } catch (error) {
+    formMessage.textContent = error.message;
+  }
+}
+
 async function deleteReport(reportId) {
   try {
     await fetchJson(`${REPORTS_API_URL}/${reportId}`, { method: "DELETE" });
@@ -656,6 +680,15 @@ adminReports.addEventListener("click", (event) => {
   }
 
   deleteReport(deleteButton.dataset.deleteReport);
+});
+
+adminUsers.addEventListener("click", (event) => {
+  const resetButton = event.target.closest("[data-reset-user]");
+  if (!resetButton) {
+    return;
+  }
+
+  resetUserPassword(resetButton.dataset.resetUser);
 });
 
 showLoginButton.addEventListener("click", () => {

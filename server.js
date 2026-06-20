@@ -636,6 +636,10 @@ function createStationId() {
   return `custom/${crypto.randomUUID()}`;
 }
 
+function generateTemporaryPassword() {
+  return crypto.randomBytes(9).toString("base64url");
+}
+
 function validateStationPayload(payload) {
   if (!payload || typeof payload !== "object") {
     return "Niepoprawne dane stacji.";
@@ -846,6 +850,34 @@ async function handleAdminApi(request, response, pathname) {
     sendJson(response, 200, {
       users: listUsers(),
       reports: listReports()
+    });
+    return;
+  }
+
+  const resetMatch = pathname.match(/^\/api\/admin\/users\/(\d+)\/reset-password$/);
+  if (resetMatch && request.method === "POST") {
+    const admin = requireAdmin(request, response);
+    if (!admin) {
+      return;
+    }
+
+    const userId = Number(resetMatch[1]);
+    const targetUser = db.prepare("SELECT id, username FROM users WHERE id = ?").get(userId);
+    if (!targetUser) {
+      sendJson(response, 404, { error: "Nie znaleziono uzytkownika." });
+      return;
+    }
+
+    const temporaryPassword = generateTemporaryPassword();
+    db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(
+      hashPassword(temporaryPassword),
+      userId
+    );
+    db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
+
+    sendJson(response, 200, {
+      username: targetUser.username,
+      temporaryPassword
     });
     return;
   }

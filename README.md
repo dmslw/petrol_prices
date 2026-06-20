@@ -64,6 +64,32 @@ npm run sync:stations
 
 Najlepiej uruchamiac ja raz dziennie w nocy z poziomu Railway cron job albo innego schedulera.
 
+## Backup bazy danych
+
+Reczna kopia zapasowa lokalnej bazy SQLite:
+
+```powershell
+npm run backup:db
+```
+
+Skrypt tworzy spojna kopie bazy (`VACUUM INTO`) w katalogu `data/backups` z nazwa
+opatrzona znacznikiem czasu i automatycznie usuwa najstarsze kopie. Mozna go bezpiecznie
+uruchamiac przy dzialajacym serwerze.
+
+Zmienne srodowiskowe:
+
+- `BACKUP_DIR` - katalog na kopie (domyslnie `data/backups`)
+- `BACKUP_KEEP` - ile ostatnich kopii zachowac (domyslnie `14`)
+
+Do regularnych kopii ustaw te komende w nocnym cron jobie obok `sync:stations`.
+
+## Reset hasla uzytkownika
+
+Reset hasla odbywa sie przez administratora. W panelu admina przy kazdym uzytkowniku
+jest przycisk `Resetuj haslo`, ktory generuje jednorazowe tymczasowe haslo (pokazywane
+adminowi raz) i wylogowuje wszystkie biezace sesje danego uzytkownika. Uzytkownik po
+zalogowaniu tymczasowym haslem powinien ustawic wlasne w sekcji `Zmiana hasla`.
+
 ## Zmienne srodowiskowe
 
 - `PORT` - port HTTP
@@ -99,8 +125,8 @@ Repo zawiera plik `render.yaml`.
 
 ## Co jeszcze warto zrobic przed publicznym startem
 
-- dodac zmiane hasla
-- dodac reset hasla
-- dodac rate limiting i captcha
-- dodac regulamin i polityke prywatnosci
-- dodac backup bazy danych
+- [x] zmiana hasla
+- [x] reset hasla (przez admina)
+- [ ] rate limiting i captcha
+- [x] regulamin i polityka prywatnosci (uzupelnic dane administratora w plikach `regulamin.html` i `polityka-prywatnosci.html`)
+- [x] backup bazy danych (`npm run backup:db`)
