@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://cenalitra.pl/sitemap.xml
+Sitemap: https://www.cenalitra.pl/sitemap.xml

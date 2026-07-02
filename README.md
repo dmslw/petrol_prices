@@ -142,7 +142,7 @@ Repo zawiera plik `render.yaml`.
 Strona ma podstawowe SEO: `meta description`, Open Graph/Twitter Card, favicone (`favicon.svg`),
 `robots.txt`, `sitemap.xml`, link `canonical` oraz dane strukturalne JSON-LD.
 
-Domena produkcyjna: `https://cenalitra.pl` (wersja bez `www`; `www.cenalitra.pl`
+Domena produkcyjna: `https://www.cenalitra.pl` (wersja z `www`; gole `cenalitra.pl`
 powinno przekierowywac na nia). Adresy sa zapisane w `index.html`, `regulamin.html`,
 `polityka-prywatnosci.html`, `robots.txt` i `sitemap.xml`.
 
