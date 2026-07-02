@@ -12,6 +12,7 @@ const POLAND_VIEW = {
   zoom: 6
 };
 const MAX_VISIBLE_MARKERS = 300;
+const MAX_LISTED_STATIONS = 40;
 
 const form = document.querySelector("#price-form");
 const loginForm = document.querySelector("#login-form");
@@ -341,7 +342,10 @@ function renderStations() {
     return;
   }
 
-  stationsList.innerHTML = visibleStations
+  const listedStations = visibleStations.slice(0, MAX_LISTED_STATIONS);
+  const hiddenCount = visibleStations.length - listedStations.length;
+
+  const cards = listedStations
     .map((station) => {
       const stationReports = getFilteredReportsForStation(station.id);
       const latest = stationReports[0];
@@ -391,6 +395,12 @@ function renderStations() {
       `;
     })
     .join("");
+
+  const moreNote = hiddenCount
+    ? `<div class="empty-state">Pokazano ${listedStations.length} z ${visibleStations.length} stacji. Zaweź wyszukiwarką lub przybliż mapę, aby zobaczyć pozostałe ${hiddenCount}.</div>`
+    : "";
+
+  stationsList.innerHTML = cards + moreNote;
 }
 
 function mergeStations(nextStations) {

@@ -290,6 +290,10 @@ body {
   display: grid;
   gap: 18px;
   margin-top: 24px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 6px;
+  overscroll-behavior: contain;
 }
 
 .station-card {
