@@ -13,6 +13,8 @@ const POLAND_VIEW = {
 };
 const MAX_VISIBLE_MARKERS = 300;
 const MAX_LISTED_STATIONS = 40;
+const RANKING_FUEL_TYPES = ["PB95", "PB98", "ON", "LPG"];
+const RANKING_TOP_COUNT = 3;
 
 const form = document.querySelector("#price-form");
 const loginForm = document.querySelector("#login-form");
@@ -24,6 +26,7 @@ const stationIdInput = document.querySelector("#stationId");
 const stationNameInput = document.querySelector("#stationName");
 const authorDisplayInput = document.querySelector("#authorDisplay");
 const stationsList = document.querySelector("#stations-list");
+const rankingsEl = document.querySelector("#rankings");
 const stationCount = document.querySelector("#station-count");
 const reportCount = document.querySelector("#report-count");
 const formMessage = document.querySelector("#form-message");
@@ -124,6 +127,7 @@ async function fetchJson(url, options = {}) {
 async function loadReports() {
   reports = sortReportsByDate(await fetchJson(REPORTS_API_URL));
   reportCount.textContent = String(reports.length);
+  renderRankings();
 }
 
 async function loadStations() {
@@ -335,6 +339,54 @@ function renderMarkers() {
   });
 }
 
+function renderRankings() {
+  if (!rankingsEl) {
+    return;
+  }
+
+  const cheapestByStation = new Map();
+  for (const report of reports) {
+    const key = `${report.stationId}|${report.fuelType}`;
+    const current = cheapestByStation.get(key);
+    if (!current || report.price < current.price) {
+      cheapestByStation.set(key, report);
+    }
+  }
+  const uniqueReports = [...cheapestByStation.values()];
+
+  rankingsEl.innerHTML = RANKING_FUEL_TYPES.map((fuelType) => {
+    const top = uniqueReports
+      .filter((report) => report.fuelType === fuelType)
+      .sort((a, b) => a.price - b.price)
+      .slice(0, RANKING_TOP_COUNT);
+
+    const rows = top.length
+      ? top
+          .map(
+            (report, index) => `
+              <li class="ranking-item">
+                <span class="ranking-pos">${index + 1}</span>
+                <div class="ranking-info">
+                  <strong>${formatPrice(report.price)}</strong>
+                  <span class="ranking-meta">${escapeHtml(report.stationName)} - ${escapeHtml(
+                    report.city
+                  )}</span>
+                </div>
+              </li>
+            `
+          )
+          .join("")
+      : '<li class="ranking-empty">Brak zgloszen</li>';
+
+    return `
+      <article class="ranking-col">
+        <h3 class="ranking-fuel">${escapeHtml(fuelType)}</h3>
+        <ol class="ranking-list">${rows}</ol>
+      </article>
+    `;
+  }).join("");
+}
+
 function renderStations() {
   if (!visibleStations.length) {
     stationsList.innerHTML =
@@ -513,6 +565,7 @@ async function submitReport(event) {
 
     reports = sortReportsByDate([createdReport, ...reports]);
     reportCount.textContent = String(reports.length);
+    renderRankings();
     form.reset();
     stationIdInput.value = station.id;
     stationNameInput.value = `${station.name} - ${station.city}, ${station.address}`;
@@ -634,6 +687,7 @@ async function deleteReport(reportId) {
     await fetchJson(`${REPORTS_API_URL}/${reportId}`, { method: "DELETE" });
     reports = reports.filter((report) => report.id !== Number(reportId));
     reportCount.textContent = String(reports.length);
+    renderRankings();
     applyFilters();
     await loadAdminOverview();
   } catch (error) {

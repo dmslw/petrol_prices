@@ -286,6 +286,74 @@ body {
   margin: 0;
 }
 
+.rankings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.ranking-col {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 250, 240, 0.9);
+  padding: 16px;
+}
+
+.ranking-fuel {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: var(--accent-dark);
+  letter-spacing: 0.04em;
+}
+
+.ranking-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.ranking-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ranking-pos {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(244, 187, 68, 0.28);
+  color: var(--accent-dark);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.ranking-info {
+  display: grid;
+  line-height: 1.2;
+}
+
+.ranking-info strong {
+  font-size: 1.05rem;
+}
+
+.ranking-meta {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.ranking-empty {
+  list-style: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .stations-list {
   display: grid;
   gap: 18px;
@@ -560,6 +628,39 @@ body {
 
 .legal__updated {
   font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.guides-list {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.guide-card {
+  display: block;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 250, 240, 0.9);
+  text-decoration: none;
+  color: var(--text);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.guide-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.guide-card h2 {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  color: var(--accent-dark);
+}
+
+.guide-card p {
+  margin: 0;
   color: var(--muted);
 }
 
