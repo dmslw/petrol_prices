@@ -142,12 +142,9 @@ Repo zawiera plik `render.yaml`.
 Strona ma podstawowe SEO: `meta description`, Open Graph/Twitter Card, favicone (`favicon.svg`),
 `robots.txt`, `sitemap.xml`, link `canonical` oraz dane strukturalne JSON-LD.
 
-Przed publikacja podmien placeholder `https://twoja-domena.pl` na swoja domene w plikach:
-
-- `index.html` (canonical, og:url, JSON-LD)
-- `regulamin.html` i `polityka-prywatnosci.html` (canonical)
-- `robots.txt` (adres sitemap)
-- `sitemap.xml` (adresy stron i `lastmod`)
+Domena produkcyjna: `https://cenalitra.pl` (wersja bez `www`; `www.cenalitra.pl`
+powinno przekierowywac na nia). Adresy sa zapisane w `index.html`, `regulamin.html`,
+`polityka-prywatnosci.html`, `robots.txt` i `sitemap.xml`.
 
 Warto tez dodac obrazek podgladu social media (1200x630 px) i wskazac go w `og:image`,
 oraz zarejestrowac strone w Google Search Console i wyslac tam `sitemap.xml`.
