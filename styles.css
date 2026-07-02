@@ -275,6 +275,17 @@ body {
   margin: 14px 2px 0;
 }
 
+.auth-form-message {
+  margin: 8px 2px 0;
+  min-height: 0;
+  color: var(--accent-dark);
+  font-weight: 600;
+}
+
+.auth-form-message:empty {
+  margin: 0;
+}
+
 .stations-list {
   display: grid;
   gap: 18px;

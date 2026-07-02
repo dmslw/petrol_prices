@@ -518,6 +518,7 @@ async function submitReport(event) {
 async function handleAuthSubmit(event, url, successMessage) {
   event.preventDefault();
   const formElement = event.currentTarget;
+  const localMessage = formElement.querySelector(".auth-form-message");
   const formData = new FormData(formElement);
 
   try {
@@ -534,10 +535,17 @@ async function handleAuthSubmit(event, url, successMessage) {
 
     currentUser = payload.user;
     updateAuthUi();
+    if (localMessage) {
+      localMessage.textContent = "";
+    }
     formMessage.textContent = successMessage;
     formElement.reset();
     await loadAdminOverview();
   } catch (error) {
+    if (localMessage) {
+      localMessage.textContent = error.message;
+      localMessage.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
     formMessage.textContent = error.message;
   }
 }
@@ -562,6 +570,7 @@ async function changePassword(event) {
     return;
   }
 
+  const localMessage = passwordForm.querySelector(".auth-form-message");
   const formData = new FormData(passwordForm);
 
   try {
@@ -577,8 +586,15 @@ async function changePassword(event) {
     });
 
     passwordForm.reset();
+    if (localMessage) {
+      localMessage.textContent = "Haslo zostalo zmienione.";
+    }
     formMessage.textContent = "Haslo zostalo zmienione.";
   } catch (error) {
+    if (localMessage) {
+      localMessage.textContent = error.message;
+      localMessage.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
     formMessage.textContent = error.message;
   }
 }
