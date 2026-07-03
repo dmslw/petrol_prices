@@ -12,6 +12,8 @@ const POLAND_VIEW = {
   zoom: 6
 };
 const MAX_VISIBLE_MARKERS = 300;
+const MAX_VISIBLE_MARKERS_MOBILE = 120;
+const MAP_MOVE_DEBOUNCE_MS = 200;
 const MAX_LISTED_STATIONS = 40;
 const RANKING_FUEL_TYPES = ["PB95", "PB98", "ON", "LPG"];
 const RANKING_TOP_COUNT = 3;
@@ -297,6 +299,10 @@ function applyFilters() {
   updateMapStatus();
 }
 
+function getMarkerCap() {
+  return window.innerWidth <= 640 ? MAX_VISIBLE_MARKERS_MOBILE : MAX_VISIBLE_MARKERS;
+}
+
 function updateMapStatus() {
   if (!allStations.length) {
     mapStatus.textContent = "Brak stacji w lokalnej bazie.";
@@ -305,13 +311,14 @@ function updateMapStatus() {
 
   if (!visibleStations.length) {
     mapStatus.textContent =
-      `W bazie jest ${allStations.length} stacji, ale nic nie pasuje do aktualnego widoku lub filtra.`;
+      `W bazie jest ${allStations.length} stacji, ale nic nie pasuje do aktualnego widoku lub filtra. Oddal mape lub zmien filtr paliwa na "Wszystkie".`;
     return;
   }
 
-  const renderedCount = Math.min(visibleStations.length, MAX_VISIBLE_MARKERS);
+  const markerCap = getMarkerCap();
+  const renderedCount = Math.min(visibleStations.length, markerCap);
 
-  if (visibleStations.length > MAX_VISIBLE_MARKERS) {
+  if (visibleStations.length > markerCap) {
     mapStatus.textContent =
       `W widoku jest ${visibleStations.length} stacji. Na mapie pokazuje pierwsze ${renderedCount}, przybliz mape aby odciazyc widok.`;
     return;
@@ -323,7 +330,7 @@ function updateMapStatus() {
 function renderMarkers() {
   markersLayer.clearLayers();
 
-  visibleStations.slice(0, MAX_VISIBLE_MARKERS).forEach((station) => {
+  visibleStations.slice(0, getMarkerCap()).forEach((station) => {
     if (!Number.isFinite(station.lat) || !Number.isFinite(station.lon)) {
       return;
     }
@@ -704,8 +711,10 @@ function initMap() {
 
   markersLayer = L.layerGroup().addTo(map);
 
+  let moveDebounce;
   map.on("moveend", () => {
-    applyFilters();
+    clearTimeout(moveDebounce);
+    moveDebounce = setTimeout(applyFilters, MAP_MOVE_DEBOUNCE_MS);
   });
 
   map.on("popupopen", (event) => {
