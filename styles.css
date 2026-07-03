@@ -719,10 +719,4 @@ body {
   .rankings {
     grid-template-columns: repeat(2, 1fr);
   }
-
-  .stations-list {
-    max-height: none;
-    overflow: visible;
-    padding-right: 0;
-  }
 }
