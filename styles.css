@@ -692,7 +692,15 @@ body {
   }
 
   .hero__stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .hero__stats article {
+    padding: 16px 10px;
+  }
+
+  .hero__stats span {
+    font-size: 2rem;
   }
 
   .station-card__top,
@@ -705,6 +713,16 @@ body {
   }
 
   .map {
-    height: 360px;
+    height: 300px;
+  }
+
+  .rankings {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .stations-list {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
   }
 }
