@@ -1060,7 +1060,9 @@ async function handleStatic(response, pathname) {
 function applySecurityHeaders(response) {
   response.setHeader("X-Content-Type-Options", "nosniff");
   response.setHeader("X-Frame-Options", "DENY");
-  response.setHeader("Referrer-Policy", "no-referrer");
+  // OpenStreetMap tile servers require a valid Referer for browser requests.
+  // Share only the origin cross-site, without exposing paths or query strings.
+  response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   response.setHeader(
     "Content-Security-Policy",
     [
