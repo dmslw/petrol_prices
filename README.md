@@ -14,10 +14,12 @@ npm start
 
 Aplikacja bedzie dostepna pod `http://127.0.0.1:3000`.
 
-Domyslne konto admina:
+Domyslne dane administracyjne sa przeznaczone **wylacznie do lokalnego developmentu**:
 
 - login: `admin`
 - haslo: `admin123`
+
+**WAZNE:** Przed publicznym wdrozeniem ustaw silne `ADMIN_PASSWORD` i zmien haslo istniejacego konta administratora. Zmiana samej zmiennej srodowiskowej nie resetuje hasla konta zapisanego juz w SQLite.
 
 Mozesz je zmienic przez zmienne srodowiskowe:
 
@@ -44,7 +46,7 @@ Test sprawdza:
 
 ## Import stacji do bazy
 
-Jednorazowy import wiekszej liczby stacji do lokalnej bazy SQLite:
+Jednorazowy import wiekszej liczby stacji do bazy SQLite wskazanej przez `DB_PATH`:
 
 ```powershell
 npm run import:stations
@@ -62,7 +64,7 @@ Do codziennego odswiezania mozesz uzywac tej samej komendy:
 npm run sync:stations
 ```
 
-Najlepiej uruchamiac ja raz dziennie w nocy z poziomu Railway cron job albo innego schedulera.
+Najlepiej uruchamiac ja raz dziennie w nocy z poziomu osobnego zadania. Uwaga: osobny serwis Railway nie wspoldzieli automatycznie systemu plikow glownego serwisu; import musi korzystac z tej samej trwalej bazy. Nie zakladaj, ze samo uruchomienie cron joba zaktualizuje baze produkcyjna.
 
 ## Backup bazy danych
 
@@ -96,7 +98,8 @@ zalogowaniu tymczasowym haslem powinien ustawic wlasne w sekcji `Zmiana hasla`.
 - `HOST` - host bindowania, domyslnie `0.0.0.0`
 - `DB_PATH` - sciezka do pliku SQLite
 - `ADMIN_USERNAME` - login admina przy pierwszym uruchomieniu
-- `ADMIN_PASSWORD` - haslo admina przy pierwszym uruchomieniu
+- `ADMIN_PASSWORD` - haslo admina przy pierwszym uruchomieniu (nie zmienia hasla istniejacego konta)
+- `SEED_DEMO_DATA` - ustaw `true` tylko do lokalnych testow, aby wypelnic pusta baze przykladowymi stacjami i cenami
 - `SECURE_COOKIES` - `true`/`false`, wymusza ciasteczka `Secure` i naglowek HSTS (domyslnie wlaczone na produkcji)
 - `MAX_BODY_BYTES` - maksymalny rozmiar zadania w bajtach (domyslnie `1048576`)
 - `AUTH_RATE_LIMIT_MAX` - liczba prob logowania/rejestracji na okno czasu i adres IP (domyslnie `10`)
@@ -106,12 +109,26 @@ zalogowaniu tymczasowym haslem powinien ustawic wlasne w sekcji `Zmiana hasla`.
 
 1. Wrzuc projekt do repozytorium GitHub.
 2. Utworz nowy projekt w Railway i podlacz repo.
-3. Ustaw volume zamontowany do katalogu `data`.
+3. Dodaj trwaly Railway Volume (np. mount path `/app/data`) i ustaw `DB_PATH=/app/data/fuel-prices.db`. Nie uzywaj domyslnej sciezki w nietrwalym systemie plikow kontenera.
 4. Ustaw zmienne:
    - `HOST=0.0.0.0`
    - `ADMIN_USERNAME=admin`
    - `ADMIN_PASSWORD=zmien-to-na-mocne-haslo`
+   - `DB_PATH=/app/data/fuel-prices.db`
+   - `NODE_ENV=production`
 5. Deploy uruchomi `npm start`.
+6. Sprawdz `/api/health`, `/api/stations` i `/api/reports`.
+7. Przed pierwszym importem wykonaj backup. Uruchamiaj `npm run import:stations` w srodowisku z dostepem do tego samego wolumenu i `DB_PATH` (np. w powloce dzialajacego serwisu, jezeli dostepna). Import korzysta z zewnetrznego Overpass API i moze potrwac kilka minut lub zakonczyc sie bledem limitu API.
+8. Po ponownym wdrozeniu sprawdz, czy liczba stacji i zgloszen nie zniknela.
+
+Dane demonstracyjne sa domyslnie wylaczone. Wylacznie w lokalnym srodowisku testowym mozna ustawic `SEED_DEMO_DATA=true`. Zmiana ta **nie usuwa** danych demonstracyjnych dodanych wczesniej. Nie kasuj rekordow w produkcji bez kopii i sprawdzenia powiazan.
+
+### Bezpieczne wdrozenie zmian
+
+- Zrob kopie bazy **poza wolumenem Railway** (backup przechowywany na tym samym wolumenie nie chroni przed jego utrata).
+- Sprawdz `DB_PATH` i mount path wolumenu przed zmianami; nie zmieniaj sciezki istniejacej bazy bez migracji danych.
+- Zweryfikuj, czy konto admina nie ma nadal hasla `admin123`.
+- Testy lokalne: `npm run test:smoke` (nie uruchamiaj testow modyfikujacych dane na produkcyjnej bazie).
 
 Repo zawiera plik `railway.json`.
 

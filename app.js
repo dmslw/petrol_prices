@@ -293,7 +293,7 @@ function applyFilters() {
     );
   });
 
-  stationCount.textContent = String(visibleStations.length);
+  stationCount.textContent = String(allStations.length);
   renderMarkers();
   renderStations();
   updateMapStatus();
