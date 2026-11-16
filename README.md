@@ -109,12 +109,12 @@ zalogowaniu tymczasowym haslem powinien ustawic wlasne w sekcji `Zmiana hasla`.
 
 1. Wrzuc projekt do repozytorium GitHub.
 2. Utworz nowy projekt w Railway i podlacz repo.
-3. Dodaj trwaly Railway Volume (np. mount path `/data`) i ustaw `DB_PATH=/data/fuel-prices.db`. Nie uzywaj domyslnej sciezki w nietrwalym systemie plikow kontenera.
+3. Dodaj trwaly Railway Volume (np. mount path `/app/data`) i ustaw `DB_PATH=/app/data/fuel-prices.db`. Nie uzywaj domyslnej sciezki w nietrwalym systemie plikow kontenera.
 4. Ustaw zmienne:
    - `HOST=0.0.0.0`
    - `ADMIN_USERNAME=admin`
    - `ADMIN_PASSWORD=zmien-to-na-mocne-haslo`
-   - `DB_PATH=/data/fuel-prices.db`
+   - `DB_PATH=/app/data/fuel-prices.db`
    - `NODE_ENV=production`
 5. Deploy uruchomi `npm start`.
 6. Sprawdz `/api/health`, `/api/stations` i `/api/reports`.
