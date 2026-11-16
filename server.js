@@ -166,7 +166,7 @@ ensureColumn("stations", "is_user_created", "INTEGER NOT NULL DEFAULT 1");
 ensureColumn("sessions", "expires_at", "TEXT NOT NULL DEFAULT ''");
 
 const reportCountRow = db.prepare("SELECT COUNT(*) AS count FROM reports").get();
-if (reportCountRow.count === 0) {
+if (reportCountRow.count === 0 && process.env.SEED_DEMO_DATA === "true") {
   const insertSeed = db.prepare(`
     INSERT INTO reports (
       station_id,
@@ -195,7 +195,7 @@ if (reportCountRow.count === 0) {
 }
 
 const stationCountRow = db.prepare("SELECT COUNT(*) AS count FROM stations").get();
-if (stationCountRow.count === 0) {
+if (stationCountRow.count === 0 && process.env.SEED_DEMO_DATA === "true") {
   const insertSeedStation = db.prepare(`
     INSERT INTO stations (
       id,
